@@ -39,16 +39,41 @@ require_once 'inc/header.php';
             <section class="content">
                 <div class="container-fluid">
                     <?php
-                    // Include the requested page or display a 404 error if the page doesn't exist
-                    if (!file_exists($page . ".php") && !is_dir($page)) {
-                        include '404.html';
+                // Assuming $page is populated from user input, like $_GET['page']
+                $page = isset($_GET['page']) ? $_GET['page'] : 'default';
+
+                // Sanitize the $page variable
+                $page = preg_replace('/[^a-zA-Z0-9_-]/', '', $page);
+
+                // Define a whitelist of allowed pages
+                $allowedPages = ['home', 'about', 'contact', 'default']; // Extend this list based on your actual pages
+
+                if (!in_array($page, $allowedPages)) {
+                    // If the page is not in the whitelist, show a 404 error page
+                    include '404.html';
+                } else {
+                    // Construct the file path
+                    $filePath = $page . '.php';
+
+                    if (file_exists($filePath) && !is_dir($filePath)) {
+                        // If the file exists and is not a directory, include it
+                        include $filePath;
+                    } else if (is_dir($page)) {
+                        // If the page corresponds to a directory, try including 'index.php' from that directory
+                        $dirIndexFilePath = $page . '/index.php';
+                        if (file_exists($dirIndexFilePath)) {
+                            include $dirIndexFilePath;
+                        } else {
+                            // If 'index.php' does not exist in the directory, show a 404 error page
+                            include '404.html';
+                        }
                     } else {
-                        if (is_dir($page))
-                            include $page . '/index.php';
-                        else
-                            include $page . '.php';
+                        // If the file does not exist, show a 404 error page
+                        include '404.html';
                     }
-                    ?>
+                }
+                ?>
+
                 </div>
             </section>
             <!-- Confirmation Modal -->
