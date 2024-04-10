@@ -1,19 +1,19 @@
 <?php
+// initialize.php
 
-// Database connection parameters
-$servername = "localhost";
-$username = "root";
-$password = ""; // Blank password
-$dbname = "cms_db";
+require_once 'db/config.php'; // Adjust the path as necessary
 
-// Create connection
-$conn = new mysqli($servername, $username, $password, $dbname);
+// Function to establish a database connection
+function dbConnect() {
+    $conn = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
 
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+    // Check connection
+    if ($conn->connect_error) {
+        die("Connection failed: " . $conn->connect_error);
+    }
+
+    return $conn;
 }
 
-// Return the connection object for use in other parts of the code
-return $conn;
-?>
+// You can then use dbConnect() wherever you need a database connection
+// $conn = dbConnect();

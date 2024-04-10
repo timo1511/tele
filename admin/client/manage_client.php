@@ -99,11 +99,11 @@ if(isset($_GET['id']) && !empty($_GET['id'])){
                                 <label for="email" class="control-label text-info">Email</label>
                                 <input type="email" class="form-control form-control-sm rounded-0" id="email" name="email" value="<?php echo isset($email) ? $email : '' ?>" required>
                             </div>
-                            <div class="form-group col-sm-4">
+                           <!-- <div class="form-group col-sm-4">
                                 <label for="password" class="control-label text-info">Password</label>
                                 <input type="password" class="form-control form-control-sm rounded-0" id="password" name="password" value="<?php echo isset($password) ? $password : '' ?>" required>
                             </div>
-
+                            -->
                             <?php if(isset($status)): ?>
                             <div class="form-group col-md-4">
                                 <label for="status" class="control-label text-info">Status</label>

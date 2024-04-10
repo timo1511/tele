@@ -1,15 +1,29 @@
 <?php 
-if(isset($_GET['id'])){
-    $qry = $conn->query("SELECT * FROM invoice_list where id = '{$_GET['id']}' ");
-    if($qry->num_rows > 0){
-        foreach($qry->fetch_array() as $k=>$v){
-            $$k= $v;
+if(isset($_GET['id']) && is_numeric($_GET['id'])){
+    // Sanitize the input
+    $invoiceId = filter_var($_GET['id'], FILTER_SANITIZE_NUMBER_INT);
+
+    // Prepare the SQL statement for the first query to prevent SQL injection
+    $stmt = $conn->prepare("SELECT * FROM invoice_list WHERE id = ?");
+    $stmt->bind_param("i", $invoiceId); // "i" indicates that the parameter type is integer
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if($result->num_rows > 0){
+        $data = $result->fetch_assoc();
+        foreach($data as $k => $v){
+            $$k = $v; // Dynamically creating variable names
         }
 
-        $qry_meta = $conn->query("SELECT i.*,s.name,s.description FROM invoice_services i inner join services_list s on i.service_id = s.id where i.invoice_id = '{$id}'");
+        // Now prepare the second query to fetch invoice services using prepared statements
+        $stmt_meta = $conn->prepare("SELECT i.*, s.name, s.description FROM invoice_services i INNER JOIN services_list s ON i.service_id = s.id WHERE i.invoice_id = ?");
+        $stmt_meta->bind_param("i", $invoiceId);
+        $stmt_meta->execute();
+        $qry_meta = $stmt_meta->get_result();
     }
 }
 ?>
+
 <style>
     .select2-container--default .select2-selection--single{
         border-radius:0;

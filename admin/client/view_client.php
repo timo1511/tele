@@ -1,20 +1,35 @@
 <?php 
-if(isset($_GET['id'])){
-    $qry = $conn->query("SELECT * FROM client_list where id = '{$_GET['id']}' ");
-    if($qry->num_rows > 0){
-        foreach($qry->fetch_array() as $k=>$v){
-            $$k= $v;
+if(isset($_GET['id']) && is_numeric($_GET['id'])){
+    // Sanitize the input
+    $clientId = filter_var($_GET['id'], FILTER_SANITIZE_NUMBER_INT);
+
+    // Prepare the SQL statement to prevent SQL injection
+    $stmt = $conn->prepare("SELECT * FROM client_list WHERE id = ?");
+    $stmt->bind_param("i", $clientId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if($result->num_rows > 0){
+        $data = $result->fetch_assoc();
+        foreach($data as $k => $v){
+            $$k = $v;
         }
 
-        $qry_meta = $conn->query("SELECT * FROM client_meta where client_id = '{$id}'");
-        while($row = $qry_meta->fetch_assoc()){
-            if(!isset(${$row['meta_field']}))
-            ${$row['meta_field']} = $row['meta_value'];
+        // Prepare the second query to fetch client metadata
+        $stmt_meta = $conn->prepare("SELECT * FROM client_meta WHERE client_id = ?");
+        $stmt_meta->bind_param("i", $clientId);
+        $stmt_meta->execute();
+        $result_meta = $stmt_meta->get_result();
+
+        while($row = $result_meta->fetch_assoc()){
+            if(!isset(${$row['meta_field']})){
+                ${$row['meta_field']} = $row['meta_value'];
+            }
         }
     }
-    
 }
 ?>
+
 <div class="card card-outline card-primary">
     <div class="card-header">
         <h5 class="card-title">Client Details</h5>

@@ -1,9 +1,27 @@
 <?php 
-$user = $conn->query("SELECT * FROM users where id ='".$_settings->userdata('id')."'");
-foreach($user->fetch_array() as $k =>$v){
-	$meta[$k] = $v;
+// Assuming $_settings->userdata('id') returns a sanitized, validated user ID.
+// If not, ensure to validate and sanitize this value before use.
+$userId = $_settings->userdata('id');
+if (is_numeric($userId)) {
+    $userId = filter_var($userId, FILTER_SANITIZE_NUMBER_INT);
+
+    $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt->bind_param("i", $userId); // "i" indicates the data type is an integer
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows > 0) {
+        $user = $result->fetch_assoc();
+        foreach ($user as $k => $v) {
+            $meta[$k] = $v;
+        }
+    }
+} else {
+    // Handle the case where the ID is not valid or not numeric
+    // For example, redirect to a login page or display an error message.
 }
 ?>
+
 <?php if($_settings->chk_flashdata('success')): ?>
 <script>
 	alert_toast("<?php echo $_settings->flashdata('success') ?>",'success')

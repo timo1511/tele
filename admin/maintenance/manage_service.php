@@ -1,14 +1,26 @@
 <?php
 require_once('../../config.php');
-if(isset($_GET['id']) && $_GET['id'] > 0){
-    $qry = $conn->query("SELECT * from `services_list` where id = '{$_GET['id']}' ");
-    if($qry->num_rows > 0){
-        foreach($qry->fetch_assoc() as $k => $v){
-            $$k=$v;
+
+// Check if 'id' is set and is a positive integer
+if(isset($_GET['id']) && filter_var($_GET['id'], FILTER_VALIDATE_INT) && $_GET['id'] > 0){
+    // Sanitize the input
+    $serviceId = filter_var($_GET['id'], FILTER_SANITIZE_NUMBER_INT);
+
+    // Prepare the SQL statement to prevent SQL injection
+    $stmt = $conn->prepare("SELECT * FROM `services_list` WHERE id = ?");
+    $stmt->bind_param("i", $serviceId); // "i" indicates that the parameter type is integer
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if($result->num_rows > 0){
+        $data = $result->fetch_assoc();
+        foreach($data as $k => $v){
+            $$k = $v; // Dynamically creating variable names
         }
     }
 }
 ?>
+
 <style>
 	img#cimg{
 		height: 15vh;
