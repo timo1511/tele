@@ -124,124 +124,114 @@ Class Master extends DBConnection {
 		return json_encode($resp);
 
 	}
-function save_client(){
-    if(empty($_POST['id'])){
+
+
+function save_client() {
+    // Check if this is a new client or an update
+    if (empty($_POST['id'])) {
+        // New client specific code
         $prefix = date("Y");
-        $code = sprintf("%'.04d",1);
-        while(true){
-            $check_code = $this->conn->query("SELECT * FROM `client_list` where client_code ='".$prefix.$code."' ")->num_rows;
-            if($check_code > 0){
-                $code = sprintf("%'.04d",$code+1);
-            }else{
+        $code = sprintf("%'.04d", 1);
+        while (true) {
+            $check_code = $this->conn->query("SELECT * FROM `client_list` where client_code ='" . $prefix . $code . "' ")->num_rows;
+            if ($check_code > 0) {
+                $code = sprintf("%'.04d", $code + 1);
+            } else {
                 break;
             }
         }
-        $_POST['client_code'] = $prefix.$code;
-        // Password from the form
-        if(isset($_POST['password'])){
-            if(!empty($_POST['password']))
-                $_POST['password'] = md5($_POST['password']);
-            else
-                unset($_POST['password']);
+        $_POST['client_code'] = $prefix . $code;
+        $_POST['salt'] = $this->generateSalt(); // Generate a new salt
+        if (isset($_POST['password']) && !empty($_POST['password'])) {
+            $_POST['password'] = $this->hashPasswordWithSalt($_POST['password'], $_POST['salt']);
+        } else {
+            unset($_POST['password']);
         }
-    }else{
-
-        // Ensure password is MD5 hashed if provided
-        if(isset($_POST['password'])){
-            if(!empty($_POST['password']))
-                $_POST['password'] = md5($_POST['password']);
-            else
-                unset($_POST['password']);
+    } else {
+        // Existing client specific code
+        $clientId = $_POST['id'];
+        $query = $this->conn->query("SELECT salt FROM client_list WHERE id = '{$clientId}'");
+        if ($query->num_rows > 0) {
+            $result = $query->fetch_assoc();
+            $existingSalt = $result['salt'];
+        } else {
+            return json_encode(['status' => 'failed', 'error' => 'Failed to retrieve client salt.']);
+        }
+        if (isset($_POST['password']) && !empty($_POST['password'])) {
+            $_POST['password'] = $this->hashPasswordWithSalt($_POST['password'], $existingSalt);
+        } else {
+            unset($_POST['password']);
         }
     }
 
-    $_POST['fullname'] = ucwords($_POST['lastname'].', '.$_POST['firstname'].' '.$_POST['middlename']);
+    // Combining the fullname
+    $_POST['fullname'] = ucwords($_POST['lastname'] . ', ' . $_POST['firstname'] . ' ' . $_POST['middlename']);
     extract($_POST);
     $data = "";
-    foreach($_POST as $k =>$v){
-        if(in_array($k,array('client_code','fullname','status','password'))){
-            if(!is_numeric($v))
-            $v= $this->conn->real_escape_string($v);
-            if(!empty($data)) $data .=", ";
-            $data .=" `{$k}` = '{$v}' ";
+    foreach ($_POST as $k => $v) {
+        if (!in_array($k, array('id', 'client_code', 'fullname', 'status', 'password', 'salt')) && !is_null($v)) {
+            $v = $this->conn->real_escape_string($v);
+            if (!empty($data)) $data .= ", ";
+            $data .= " `{$k}` = '{$v}' ";
         }
     }
 
-    if(empty($id)){
-        $sql = "INSERT INTO `client_list` set {$data}";
-    }else{
-        $sql = "UPDATE `client_list` set {$data} where id = '{$id}'";
+    // SQL query to insert or update the client record
+    if (empty($id)) {
+        $sql = "INSERT INTO `client_list` set `client_code` = '{$client_code}', `fullname` = '{$fullname}', `status` = '{$status}', `password` = '{$password}', `salt` = '{$salt}'" . (!empty($data) ? ", " . $data : "");
+    } else {
+        $sql = "UPDATE `client_list` set `fullname` = '{$fullname}', `status` = '{$status}'" . (!empty($password) ? ", `password` = '{$password}'" : "") . (!empty($data) ? ", " . $data : "") . " where id = '{$id}'";
     }
     $save = $this->conn->query($sql);
-    if($save){
-        $resp['status'] = 'success';
-        if(empty($id))
-        $client_id = $this->conn->insert_id;
-        else
-        $client_id = $id;
-        $resp['id'] = $client_id;
-        $data = "";
-        foreach($_POST as $k =>$v){
-            if(in_array($k,array('id','client_code','fullname','status','password')))
-            continue;
-            if(!empty($data)) $data .=", ";
-            $data .= "('{$client_id}','{$k}','{$v}')";
-        }
-
-        if(!empty($data)){
-            $this->conn->query("DELETE FROM `client_meta` where client_id = '{$client_id}'");
-            $sql2 = "INSERT INTO `client_meta` (`client_id`,`meta_field`,`meta_value`) VALUES {$data}";
-            $save = $this->conn->query($sql2);
-            if(!$save){
-                $resp['status'] = 'failed';
-                if(empty($id)){
-                    $this->conn->query("DELETE FROM `client_list` where id '{$client_id}'");
-                }
-                $resp['msg'] = 'Saving client Details has failed. Error: '.$this->conn->error;
-                $resp['sql'] =  $sql2;
-            }
-        }
-
-        if(isset($_FILES['avatar']) && $_FILES['avatar']['tmp_name'] != ''){
-            $fname = 'uploads/client-'.$client_id.'.png';
-            $dir_path =base_app. $fname;
+    if ($save) {
+        $client_id = empty($id) ? $this->conn->insert_id : $id;
+        // Handling the avatar upload
+        if (isset($_FILES['avatar']) && $_FILES['avatar']['tmp_name'] != '') {
+            $fname = 'uploads/client-' . $client_id . '.png';
+            $dir_path = 'base_app/' . $fname; // Make sure 'base_app' path is correct
             $upload = $_FILES['avatar']['tmp_name'];
             $type = mime_content_type($upload);
-            $allowed = array('image/png','image/jpeg');
-            if(!in_array($type,$allowed)){
-                $resp['msg'].=" But Image failed to upload due to invalid file type.";
-            }else{
-                $new_height = 200; 
-                $new_width = 200; 
+            $allowed = array('image/png', 'image/jpeg');
+            if (!in_array($type, $allowed)) {
+                $resp['msg'] = "But Image failed to upload due to invalid file type.";
+            } else {
                 list($width, $height) = getimagesize($upload);
-                $t_image = imagecreatetruecolor($new_width, $new_height);
-                imagealphablending( $t_image, false );
-                imagesavealpha( $t_image, true );
-                $gdImg = ($type == 'image/png')? imagecreatefrompng($upload) : imagecreatefromjpeg($upload);
-                imagecopyresampled($t_image, $gdImg, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
-                if($gdImg){
-                        if(is_file($dir_path))
-                        unlink($dir_path);
-                        $uploaded_img = imagepng($t_image,$dir_path);
-                        imagedestroy($gdImg);
-                        imagedestroy($t_image);
-                }else{
-                $resp['msg'].=" But Image failed to upload due to unknown reason.";
+                $new_height = 200;
+                $new_width = 200;
+                $image_p = imagecreatetruecolor($new_width, $new_height);
+                if ($type == 'image/jpeg') {
+                    $image = imagecreatefromjpeg($upload);
+                } else {
+                    $image = imagecreatefrompng($upload);
                 }
+                imagecopyresampled($image_p, $image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
+                if ($type == 'image/jpeg') {
+                    imagejpeg($image_p, $dir_path, 100);
+                } else {
+                    imagepng($image_p, $dir_path);
+                }
+                imagedestroy($image);
+                imagedestroy($image_p);
             }
         }
-    }else{
-        $resp['status'] = 'failed';
-        $resp['msg'] = 'An error occurred. Error: '.$this->conn->error;
-    }
-    if($resp['status'] == 'success'){
-        if(empty($id)){
-            $this->settings->set_flashdata('success'," New Client successfully added.");
-        }else{
-            $this->settings->set_flashdata('success'," Client's Details Successfully updated.");
+        $resp = ['status' => 'success', 'id' => $client_id];
+        if(empty($id)) {
+            $this->settings->set_flashdata('success', "New Client successfully added.");
+        } else {
+            $this->settings->set_flashdata('success', "Client's Details Successfully updated.");
         }
+    } else {
+        $resp = ['status' => 'failed', 'msg' => 'An error occurred. Error: ' . $this->conn->error];
     }
     return json_encode($resp);
+}
+
+private function generateSalt() {
+    return uniqid(mt_rand(), true);
+}
+
+private function hashPasswordWithSalt($password, $salt) {
+    return md5($salt . $password);
 }
 
 
