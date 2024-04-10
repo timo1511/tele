@@ -1,12 +1,23 @@
-
 <?php 
 if(isset($_GET['id']) && $_GET['id'] > 0){
-    $user = $conn->query("SELECT * FROM users where id ='{$_GET['id']}'");
-    foreach($user->fetch_array() as $k =>$v){
-        $meta[$k] = $v;
+    // Sanitize the input to ensure it's an integer
+    $userId = filter_var($_GET['id'], FILTER_SANITIZE_NUMBER_INT);
+    
+    // Prepare the SQL statement to prevent SQL injection
+    $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt->bind_param("i", $userId); // "i" indicates the parameter type is integer
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if($result->num_rows > 0){
+        $user = $result->fetch_assoc();
+        foreach($user as $k => $v){
+            $meta[$k] = $v;
+        }
     }
 }
 ?>
+
 <?php if($_settings->chk_flashdata('success')): ?>
 <script>
 	alert_toast("<?php echo $_settings->flashdata('success') ?>",'success')
