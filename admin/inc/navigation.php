@@ -96,9 +96,9 @@
         <!-- /.sidebar -->
       </aside>
       <script>
-        var page;
+    var page;
     $(document).ready(function(){
-      page = '<?php echo isset($_GET['page']) ? $_GET['page'] : 'home' ?>';
+      page = <?php echo json_encode(isset($_GET['page']) ? $_GET['page'] : 'home'); ?>;
       page = page.replace(/\//gi,'_');
 
       if($('.nav-link.nav-'+page).length > 0){
@@ -110,14 +110,13 @@
         if($('.nav-link.nav-'+page).hasClass('nav-is-tree') == true){
           $('.nav-link.nav-'+page).parent().addClass('menu-open')
         }
-
       }
       
-		$('#receive-nav').click(function(){
-      $('#uni_modal').on('shown.bs.modal',function(){
-        $('#find-transaction [name="tracking_code"]').focus();
+      $('#receive-nav').click(function(){
+        $('#uni_modal').on('shown.bs.modal',function(){
+          $('#find-transaction [name="tracking_code"]').focus();
+        })
+        uni_modal("Enter Tracking Number","transaction/find_transaction.php");
       })
-			uni_modal("Enter Tracking Number","transaction/find_transaction.php");
-		})
     })
-  </script>
+</script>
