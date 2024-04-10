@@ -1,15 +1,30 @@
 <?php 
-if(isset($_GET['id'])){
-    $qry = $conn->query("SELECT i.*,c.fullname FROM invoice_list i inner join client_list c on i.client_id = c.id where i.id = '{$_GET['id']}' ");
+include_once 'inc/head.php'; // Use include_once for including the head.php file safely
+
+$id = filter_input(INPUT_GET, 'id', FILTER_SANITIZE_NUMBER_INT); // Sanitize the input to ensure it's an integer
+
+if($id){
+    // Prepared statement to avoid SQL Injection
+    $stmt = $conn->prepare("SELECT i.*,c.fullname FROM invoice_list i inner join client_list c on i.client_id = c.id where i.id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $qry = $stmt->get_result();
+    
     if($qry->num_rows > 0){
-        foreach($qry->fetch_array() as $k=>$v){
-            $$k= $v;
+        $data = $qry->fetch_array(MYSQLI_ASSOC);
+        foreach($data as $k => $v){
+            $$k = $v;
         }
 
-        $qry_meta = $conn->query("SELECT i.*,s.name,s.description FROM invoice_services i inner join services_list s on i.service_id = s.id where i.invoice_id = '{$id}'");
-    }
-    
+        // Fetching invoice services with a prepared statement
+        $stmt_meta = $conn->prepare("SELECT i.*,s.name,s.description FROM invoice_services i inner join services_list s on i.service_id = s.id where i.invoice_id = ?");
+        $stmt_meta->bind_param("i", $id);
+        $stmt_meta->execute();
+        $qry_meta = $stmt_meta->get_result();
+    }  
 }
+
+// Ensure to escape output using htmlspecialchars to avoid XSS attacks
 ?>
 <div class="card card-outline card-primary">
     <div class="card-header">

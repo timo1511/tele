@@ -1,21 +1,25 @@
+
 <?php
 // Include the head.php file
 include_once 'inc/head.php';
 
+$fullname = "Unknown"; // Default value in case the client code is not found or not set
+
 // Check if the client details are passed via GET parameters
 if(isset($_GET['client_code'])) {
-    $client_code = $_GET['client_code'];
+    // Sanitize the client_code to ensure it's a string without HTML tags
+    $client_code = filter_input(INPUT_GET, 'client_code', FILTER_SANITIZE_STRING);
 
     // Fetch client details from the database using the client code
-    $sql = "SELECT fullname FROM client_list WHERE client_code = '$client_code'";
-    $result = $conn->query($sql);
+    // Use prepared statements to prevent SQL injection
+    $stmt = $conn->prepare("SELECT fullname FROM client_list WHERE client_code = ?");
+    $stmt->bind_param("s", $client_code);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
     if ($result->num_rows > 0) {
         $row = $result->fetch_assoc();
         $fullname = $row['fullname'];
-    } else {
-        // Handle the case where the client code is not found
-        $fullname = "Unknown";
     }
 }
 ?>

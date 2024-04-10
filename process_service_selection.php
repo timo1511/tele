@@ -13,28 +13,31 @@ if (!isset($_SESSION['userdata']) || empty($_SESSION['userdata']['client_code'])
     exit;
 }
 
-$serviceId = $conn->real_escape_string($_POST['service_id']);
-$remarks = isset($_POST['remarks']) ? $conn->real_escape_string($_POST['remarks']) : '';
-$clientId = $_SESSION['userdata']['id']; 
+// Sanitize inputs
+$serviceId = filter_input(INPUT_POST, 'service_id', FILTER_SANITIZE_NUMBER_INT);
+$remarks = filter_input(INPUT_POST, 'remarks', FILTER_SANITIZE_STRING);
+$clientId = $_SESSION['userdata']['id']; // Assuming this comes from a secure source as it's from the session
 
 $invoiceDetails = [];
 $services = [];
 $message = '';
 
-$serviceQuery = $conn->query("SELECT price FROM services_list WHERE id = '$serviceId'");
+$serviceQuery = $conn->query("SELECT price FROM services_list WHERE id = '" . $conn->real_escape_string($serviceId) . "'");
 if ($service = $serviceQuery->fetch_assoc()) {
     $servicePrice = $service['price'];
     $invoiceCode = bin2hex(random_bytes(8)); 
     $status = isset($_POST['payment_code']) ? '1' : '0'; 
 
-    $insertInvoiceQuery = "INSERT INTO invoice_list (invoice_code, client_id, total_amount, discount, tax, remarks, status, date_created, date_updated) VALUES ('$invoiceCode', '$clientId', '$servicePrice', '0', '0', '$remarks', '$status', NOW(), NOW())";
+    $insertInvoiceQuery = $conn->prepare("INSERT INTO invoice_list (invoice_code, client_id, total_amount, discount, tax, remarks, status, date_created, date_updated) VALUES (?, ?, ?, '0', '0', ?, ?, NOW(), NOW())");
+    $insertInvoiceQuery->bind_param("ssdsd", $invoiceCode, $clientId, $servicePrice, $remarks, $status);
     
-    if ($conn->query($insertInvoiceQuery)) {
+    if ($insertInvoiceQuery->execute()) {
         $invoiceId = $conn->insert_id;
 
-        $insertServiceQuery = "INSERT INTO invoice_services (invoice_id, service_id, price) VALUES ('$invoiceId', '$serviceId', '$servicePrice')";
+        $insertServiceQuery = $conn->prepare("INSERT INTO invoice_services (invoice_id, service_id, price) VALUES (?, ?, ?)");
+        $insertServiceQuery->bind_param("isi", $invoiceId, $serviceId, $servicePrice);
         
-        if ($conn->query($insertServiceQuery)) {
+        if ($insertServiceQuery->execute()) {
             $message = "Service selected successfully!";
             
             $invoiceDetailsQuery = $conn->query("SELECT * FROM invoice_list WHERE id = '$invoiceId'");
@@ -56,7 +59,6 @@ if ($service = $serviceQuery->fetch_assoc()) {
 
 require_once('inc/header.php');
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>

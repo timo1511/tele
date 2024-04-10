@@ -151,18 +151,41 @@ Class Users extends DBConnection {
 			}
 		}
 
-			if(!empty($password))
-			$data .= ", `password` = '".md5($password)."' ";
-		
-			if(isset($_FILES['img']) && $_FILES['img']['tmp_name'] != ''){
-				$fname = 'uploads/'.strtotime(date('y-m-d H:i')).'_'.$_FILES['img']['name'];
-				$move = move_uploaded_file($_FILES['img']['tmp_name'],'../'. $fname);
-				if($move){
-					$data .=" , avatar = '{$fname}' ";
-					if(isset($_SESSION['userdata']['avatar']) && is_file('../'.$_SESSION['userdata']['avatar']))
-						unlink('../'.$_SESSION['userdata']['avatar']);
-				}
+			if (!empty($password)) {
+			    $data .= ", `password` = '" . md5($password) . "' ";
 			}
+
+			if (isset($_FILES['img']) && $_FILES['img']['tmp_name'] != '') {
+			    // Validate the file type for security
+			    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+			    $fileType = $_FILES['img']['type'];
+
+			    if (in_array($fileType, $allowedTypes)) {
+			        // Generate a secure file name (e.g., using the current timestamp and a random element)
+			        $extension = pathinfo($_FILES['img']['name'], PATHINFO_EXTENSION);
+			        $secureFileName = strtotime(date('y-m-d H:i')) . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
+
+			        // Sanitize the file name to remove special characters
+			        $secureFileName = str_replace(["..", "/", "\\"], "", $secureFileName); // Basic sanitization
+
+			        $targetPath = '../uploads/' . $secureFileName; // Construct the target path
+			        
+			        // Move the file to the target path
+			        $move = move_uploaded_file($_FILES['img']['tmp_name'], $targetPath);
+
+			        if ($move) {
+			            $data .= ", avatar = '{$secureFileName}' "; // Use the sanitized, secure file name
+
+			            // Remove the old avatar if it exists
+			            if (isset($_SESSION['userdata']['avatar']) && is_file('../uploads/' . $_SESSION['userdata']['avatar'])) {
+			                unlink('../uploads/' . $_SESSION['userdata']['avatar']);
+			            }
+			        }
+			    } else {
+			        // Handle invalid file type (e.g., set an error message)
+			    }
+			}
+
 			$sql = "UPDATE students set {$data} where id = $id";
 			$save = $this->conn->query($sql);
 

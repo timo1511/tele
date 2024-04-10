@@ -148,9 +148,12 @@ function save_client() {
             unset($_POST['password']);
         }
     } else {
-        // Existing client specific code
-        $clientId = $_POST['id'];
-        $query = $this->conn->query("SELECT salt FROM client_list WHERE id = '{$clientId}'");
+        // Assuming $clientId comes from user input ($_POST['id'])
+		$clientId = filter_input(INPUT_POST, 'id', FILTER_SANITIZE_NUMBER_INT);
+
+		// Using prepared statements to execute the query safely
+		$stmt = $this->conn->prepare("SELECT salt FROM client_list WHERE id = ?");
+		$stmt->bind_param("i", $clientId); // "i" denotes the type of the parameter (integer)
         if ($query->num_rows > 0) {
             $result = $query->fetch_assoc();
             $existingSalt = $result['salt'];
