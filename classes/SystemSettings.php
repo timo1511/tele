@@ -57,11 +57,25 @@ class SystemSettings extends DBConnection {
         }
 
         // Handle file updates for content items
-        if (isset($_POST['content'])) {
-            foreach ($_POST['content'] as $k => $v) {
-                file_put_contents("../{$k}.html", $v);
-            }
-        }
+        //if (isset($_POST['content'])) {
+        //    foreach ($_POST['content'] as $k => $v) {
+        //        file_put_contents("../{$k}.html", $v);
+        //   }
+        //}
+
+        // Handle file updates for content items
+			if (isset($_POST['content'])) {
+			    foreach ($_POST['content'] as $k => $v) {
+			        // Sanitize the filename to remove any path information
+			        $safeFileName = basename($k);
+			        
+			        // Append .html to ensure the file is an HTML file
+			        $safeFilePath = "../" . $safeFileName . ".html";
+			        
+			        // Proceed to write the sanitized content to the sanitized file path
+			        file_put_contents($safeFilePath, $v);
+			    }
+			}
 
         // Handle image uploads for logo
         if (isset($_FILES['img']) && $_FILES['img']['tmp_name'] != '') {
