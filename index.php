@@ -5,14 +5,23 @@ if(isset($_SESSION['userdata']) && !empty($_SESSION['userdata']['client_code']))
     require_once('inc/header.php');
     $client_code = $_SESSION['userdata']['client_code'];
 
-    // Assuming $conn is your database connection variable from config.php
-    $clientInfoQuery = $conn->query("SELECT * FROM client_list WHERE client_code = '$client_code'");
-    if($clientInfo = $clientInfoQuery->fetch_assoc()){
+    // Use prepared statement to prevent SQL Injection
+    $stmt = $conn->prepare("SELECT * FROM client_list WHERE client_code = ?");
+    $stmt->bind_param("s", $client_code); // "s" specifies the variable type => 'string'
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if($clientInfo = $result->fetch_assoc()){
         $client_id = $clientInfo['id']; // Fetch client ID for meta information
 
-        $clientMetaQuery = $conn->query("SELECT meta_field, meta_value FROM client_meta WHERE client_id = '$client_id'");
+        // Use another prepared statement for fetching meta information
+        $metaStmt = $conn->prepare("SELECT meta_field, meta_value FROM client_meta WHERE client_id = ?");
+        $metaStmt->bind_param("i", $client_id); // "i" specifies the variable type => 'integer'
+        $metaStmt->execute();
+        $metaResult = $metaStmt->get_result();
+        
         $clientMeta = [];
-        while($meta = $clientMetaQuery->fetch_assoc()){
+        while($meta = $metaResult->fetch_assoc()){
             $clientMeta[$meta['meta_field']] = $meta['meta_value'];
         }
     } else {
@@ -20,12 +29,17 @@ if(isset($_SESSION['userdata']) && !empty($_SESSION['userdata']['client_code']))
         echo "<script>alert('Client not found.'); location.href='logout.php';</script>";
         exit;
     }
+
+    // Don't forget to close your prepared statements
+    $stmt->close();
+    $metaStmt->close();
 } else {
     // Redirect to login page if client_code is not set in the session
     echo "<script>location.href='login.php';</script>";
     exit;
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en" style="height: auto;">
 <head>
